@@ -2,6 +2,7 @@ import axios from 'axios';
 import xlsx from 'node-xlsx';
 import fs from 'fs/promises'
 import cliProgress from 'cli-progress'
+import { gerarToken } from './gerar-token.js'
 
 const progress = new cliProgress.SingleBar({}, cliProgress.Presets.shades_classic);
 
@@ -32,8 +33,6 @@ async function exportToXlsx(data, filename, sheetName = 'Planilha1') {
 
   // Salvar arquivo
   await fs.writeFile(filename, buffer);
-
-  console.log(`Arquivo "${filename}" exportado com sucesso!`);
 }
 async function readData()
 {
@@ -65,20 +64,28 @@ const urls = {
     region: 'https://viabilidade.algartelecom.com.br/portalviabilidade/telecom/location-management/geographic-information/v1/regions'
 }
 
-async function main()
+export async function main()
 {
     const data = await readData()
-    const { access_token } = await readAccessToken()
-    const headers = {
-        access_token: access_token,
-        client_id: "f20f3341-7f18-328d-a6a5-eec07b8340d7",
-        Referer: "https://viabilidade.algartelecom.com.br/portalviabilidade/"
-    }
     const newPayload = []
     progress.start(data.length, 0)
     for (const index in data) {
+        const { access_token } = await readAccessToken()
+        if (index % 15 === 0) {
+            console.log(`Action at index: ${index}`);
+            try {
+                await gerarToken()
+            } catch (e) {
+                console.log('Falha ao renovar token')
+            }
+        }
+        const headers = {
+            access_token: access_token,
+            client_id: "f20f3341-7f18-328d-a6a5-eec07b8340d7",
+            Referer: "https://viabilidade.algartelecom.com.br/portalviabilidade/"
+        }
         try {
-            bar1.update(index);
+            progress.update(Number(index));
             const row = data[index];
             // Filter only numbers from CEP and format as XXXXX-XXX
             const cepNumbers = String(row.CEP).replace(/\D/g, '');
